@@ -23,6 +23,7 @@ import android.widget.Toast
 private val TAG = "gattClientCallback"
 
 class ConnectActivity(private val context: Context?, private var bluetoothGatt: BluetoothGatt?) {
+    var handler : Handler ?= null
     private var device: BluetoothDevice? = null
     private val gattCallback: BluetoothGattCallback = object : BluetoothGattCallback() {
         @SuppressLint("MissingPermission")
@@ -80,9 +81,9 @@ class ConnectActivity(private val context: Context?, private var bluetoothGatt: 
         this.device = device
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            handler?.postDelayed({ bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE) }, 200)
         } else {
-            bluetoothGatt = device.connectGatt(context, false, gattCallback)
+            handler?.postDelayed({ bluetoothGatt = device.connectGatt(context, false, gattCallback) }, 200)
         }
         return bluetoothGatt
     }
