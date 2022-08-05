@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
@@ -14,6 +15,12 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
@@ -38,6 +45,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewManager: RecyclerView.LayoutManager
     private lateinit var recyclerViewAdapter : RecyclerViewAdapter
 
+    private var bleGatt: BluetoothGatt? = null
+    private var mContext: Context? = null
+
     private val mLeScanCallback = @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     object : ScanCallback() {
         override fun onScanFailed(errorCode: Int) {
@@ -55,7 +65,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        @SuppressLint("MissingPermission")
+        @SuppressLint("MissingPermission", "NotifyDataSetChanged")
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             result?.let {
@@ -72,9 +82,17 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        mContext = this
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         viewManager = LinearLayoutManager(this)
         recyclerViewAdapter =  RecyclerViewAdapter(devicesArr)
+        recyclerViewAdapter.mListener = object : RecyclerViewAdapter.OnItemClickListener {
+            override fun OnClick(view: View, position: Int) {
+                scanDevice(false)
+                val device = devicesArr[position]
+                bleGatt = ConnectActivity(mContext, bleGatt).connectGatt(device)
+            }
+        }
         binding.recyclerView.apply {
             layoutManager = viewManager
             adapter = recyclerViewAdapter
@@ -86,7 +104,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun hasPermissions(context: Context?, permissions: Array<String>) : Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && context != null && permissions != null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && context != null) {
             for (permission in permissions) {
                 if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
                     return false
@@ -142,6 +160,37 @@ class MainActivity : AppCompatActivity() {
     } else {
         scanning = false
         bluetoothAdapter?.bluetoothLeScanner?.stopScan(mLeScanCallback)
+    }
+
+    class RecyclerViewAdapter(private val myDataset: ArrayList<BluetoothDevice>) : RecyclerView.Adapter<RecyclerViewAdapter.MyViewHolder>() {
+        var mListener: OnItemClickListener? = null
+
+        interface OnItemClickListener {
+            fun OnClick(view: View, position: Int)
+        }
+
+        class MyViewHolder(val linearView: LinearLayout) : RecyclerView.ViewHolder(linearView)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MyViewHolder {
+            val linearView = LayoutInflater.from(parent.context).inflate(R.layout.recyclerview_item, parent, false) as LinearLayout
+            return MyViewHolder(linearView)
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onBindViewHolder(holder: MyViewHolder, position: Int) {
+            val Name: TextView = holder.linearView.findViewById(R.id.item_name)
+            val Adress: TextView = holder.linearView.findViewById(R.id.item_address)
+            Name.text = myDataset[position].name
+            Adress.text = myDataset[position].address
+            if (mListener != null) {
+                holder.itemView.setOnClickListener { v->
+                    mListener?.OnClick(v, position)
+                }
+            }
+        }
+
+        override fun getItemCount() = myDataset.size
+
     }
 }
 
